@@ -9,7 +9,7 @@ angular.module('panzoom', ['monospaced.mousewheel'])
 function ($document, PanZoomService) {
             var api = {};
             var viewportHeight;
-            var viewportWidth;            
+            var viewportWidth;
 
             return {
                 restrict: 'E',
@@ -20,6 +20,7 @@ function ($document, PanZoomService) {
                 },
                 controller: ['$scope', '$element',
                     function ($scope, $element) {
+                        var initialRectangle;
                         var frameElement = $element;
                         var panElement = $element.find('.pan-element');
                         var zoomElement = $element.find('.zoom-element');
@@ -29,7 +30,7 @@ function ($document, PanZoomService) {
 
                         var $overlay;
                         var existing = $document.find('#PanZoomOverlay');
-                        
+
                         if (existing.length === 0) {
                             $overlay = $('<div id="PanZoomOverlay" style="position: absolute;'+
             				' top: 0; left: 0; right: 0; bottom: 0; opacity: 0; display: none;"></div>');
@@ -37,7 +38,7 @@ function ($document, PanZoomService) {
                         } else {
                         	$overlay = existing;
                         }
-                        
+
                         var getCssScale = function (zoomLevel) {
                             return Math.pow($scope.config.scalePerZoomLevel, zoomLevel - $scope.config.neutralZoomLevel);
                         };
@@ -47,7 +48,7 @@ function ($document, PanZoomService) {
                         };
 
                         // initialize models. Use passed properties when available, otherwise revert to defaults
-                        // NOTE: all times specified in seconds, all distances specified in pixels                        
+                        // NOTE: all times specified in seconds, all distances specified in pixels
                         $scope.config.disableZoomAnimation = $scope.config.disableZoomAnimation !== undefined ? $scope.config.disableZoomAnimation : false;
                         $scope.config.zoomLevels = $scope.config.zoomLevels !== undefined ? $scope.config.zoomLevels : 5;
                         $scope.config.neutralZoomLevel = $scope.config.neutralZoomLevel !== undefined ? $scope.config.neutralZoomLevel : 2;
@@ -60,7 +61,7 @@ function ($document, PanZoomService) {
                         $scope.config.zoomButtonIncrement = $scope.config.zoomButtonIncrement !== undefined ? $scope.config.zoomButtonIncrement : 1.0;
                         $scope.config.useHardwareAcceleration =
                             $scope.config.useHardwareAcceleration !== undefined ? $scope.config.useHardwareAcceleration : false;
-                        
+
                         $scope.config.initialZoomLevel =
                             $scope.config.initialZoomLevel !== undefined ? $scope.config.initialZoomLevel : $scope.config.neutralZoomLevel;
                         $scope.config.initialPanX = $scope.config.initialPanX !== undefined ? $scope.config.initialPanX  : 0;
@@ -74,7 +75,7 @@ function ($document, PanZoomService) {
                             $scope.config.keepInBoundsRestoreForce !== undefined ? $scope.config.keepInBoundsRestoreForce : 0.5;
                         $scope.config.keepInBoundsDragPullback =
                             $scope.config.keepInBoundsDragPullback !== undefined ? $scope.config.keepInBoundsDragPullback : 0.7;
-
+                        $scope.config.keepInScreen = $scope.config.keepInScreen && $scope.config.keepInBounds === false ? $scope.config.keepInScreen : false;
                         $scope.config.zoomOnDoubleClick = $scope.config.zoomOnDoubleClick !== undefined ? $scope.config.zoomOnDoubleClick : true;
                         $scope.config.zoomOnMouseWheel = $scope.config.zoomOnMouseWheel !== undefined ? $scope.config.zoomOnMouseWheel : true;
                         $scope.config.panOnClickDrag = $scope.config.panOnClickDrag !== undefined ? $scope.config.panOnClickDrag : true;
@@ -110,6 +111,7 @@ function ($document, PanZoomService) {
 
                         if ($scope.config.initialZoomToFit) {
                             $scope.base = calcZoomToFit($scope.config.initialZoomToFit);
+                            initialRectangle = angular.copy($scope.base);
                         } else {
                             $scope.base = {
                                 zoomLevel: $scope.config.initialZoomLevel,
@@ -118,11 +120,12 @@ function ($document, PanZoomService) {
                                     y: $scope.config.initialPanY
                                 }
                             };
+                            initialRectangle = angular.copy($scope.base);
                         }
 
                         $scope.model.zoomLevel = $scope.base.zoomLevel;
                         //Only true if panning has actually taken place, not just after mousedown
-                        $scope.model.isPanning = false; 
+                        $scope.model.isPanning = false;
                         $scope.model.pan = {
                             x: $scope.base.pan.x,
                             y: $scope.base.pan.y
@@ -136,18 +139,20 @@ function ($document, PanZoomService) {
                         $scope.zoomAnimation = undefined;
 
                         // private
-                        
+
                         var syncModelToDOM = function () {
                             if ($scope.zoomAnimation) {
                                 $scope.model.zoomLevel = $scope.base.zoomLevel + $scope.zoomAnimation.deltaZoomLevel * $scope.zoomAnimation.progress;
                                 var deltaT = $scope.zoomAnimation.translationFromZoom($scope.model.zoomLevel);
                                 $scope.model.pan.x = $scope.base.pan.x + deltaT.x;
                                 $scope.model.pan.y = $scope.base.pan.y + deltaT.y;
-                                
+
+                                var topLeftCornerView;
+                                var bottomRightCornerView;
                                 if ($scope.config.keepInBounds) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
-        
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+
                                     if (topLeftCornerView.x > 0) {
                                         $scope.model.pan.x = 0;
                                     }
@@ -164,7 +169,36 @@ function ($document, PanZoomService) {
                                         $scope.model.pan.y -= (bottomRightCornerView.y - viewportHeight);
                                     }
                                 }
-                                
+
+                                if ($scope.config.keepInScreen) {
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: $element.width(), y: $element.height() });
+                                    // var modelPosition = getModelPosition({ x: $element.width(), y: $element.height() });
+                                    // console.log('syncModelToDOM');
+                                    // console.log(modelPosition.x + ', ' + modelPosition.y);
+                                    if (topLeftCornerView.x > 0) {
+                                        // $scope.model.pan.x = initialRectangle.pan.x;
+                                        $scope.model.pan.x -= $scope.config.neutralZoomLevel * 0.8;
+                                    }
+
+                                    if (topLeftCornerView.y > 0) {
+                                        // $scope.model.pan.y = initialRectangle.pan.y;
+                                        $scope.model.pan.y -= $scope.config.neutralZoomLevel * 0.8;
+                                    }
+
+                                    // if (modelPosition.x < viewportWidth) {
+                                    //     $scope.model.pan.x = bottomRightCornerView.x - viewportHeight;
+                                    // }
+
+                                    // if (bottomRightCornerView.y < viewportHeight) {
+                                    //     $scope.model.pan.y = bottomRightCornerView.y - viewportHeight;
+                                    // }
+
+                                    if ($scope.model.zoomLevel - initialRectangle.zoomLevel < 0.01) {
+                                        $scope.model.pan.x = initialRectangle.pan.x;
+                                        $scope.model.pan.y = initialRectangle.pan.y;
+                                    }
+                                }
                             } else {
                                 $scope.model.zoomLevel = $scope.base.zoomLevel;
                                 $scope.model.pan.x = $scope.base.pan.x;
@@ -172,9 +206,9 @@ function ($document, PanZoomService) {
                             }
 
                             var scale = getCssScale($scope.model.zoomLevel);
-                            
+
                             var scaleString = 'scale(' + scale + ')';
-                            
+
                             if (navigator.userAgent.indexOf('Chrome') !== -1) {
                                 // For Chrome, use the zoom style by default, as it doesn't handle nested SVG very well
                                 // when using transform
@@ -206,14 +240,14 @@ function ($document, PanZoomService) {
 
                             if ($scope.config.useHardwareAcceleration) {
                                 var translate = 'translate3d(' + $scope.model.pan.x + 'px, ' + $scope.model.pan.y + 'px, 0)';
-                                
+
                                 panElementDOM.style.transform = translate;
                                 panElementDOM.style.msTransform = translate;
-                                panElementDOM.style.webkitTransform = translate;  
+                                panElementDOM.style.webkitTransform = translate;
                                 panElementDOM.style.mozTransform = translate;
                             } else {
                                 panElementDOM.style.left = $scope.model.pan.x + 'px';
-                                panElementDOM.style.top = $scope.model.pan.y + 'px';    
+                                panElementDOM.style.top = $scope.model.pan.y + 'px';
                             }
                         };
 
@@ -236,7 +270,16 @@ function ($document, PanZoomService) {
                             }
 
                             // keep zoom level in bounds
-                            var minimumAllowedZoomLevel = $scope.config.keepInBounds ? $scope.config.neutralZoomLevel : 0;
+                            var minimumAllowedZoomLevel = 0;
+
+                            if ($scope.config.keepInScreen) {
+                                minimumAllowedZoomLevel = initialRectangle.zoomLevel;
+                            }
+
+                            if ($scope.config.keepInBounds) {
+                                minimumAllowedZoomLevel = $scope.config.neutralZoomLevel;
+                            }
+
                             newZoomLevel = Math.max(minimumAllowedZoomLevel, newZoomLevel);
                             newZoomLevel = Math.min($scope.config.zoomLevels - 1, newZoomLevel);
 
@@ -295,7 +338,7 @@ function ($document, PanZoomService) {
                                 translationFromZoom: translationFromZoom,
                                 duration: duration,
                                 //If zoom animation disabled set progress to finish and run normal animation loop
-                                progress: $scope.config.disableZoomAnimation ? 1.0 : 0.0 
+                                progress: $scope.config.disableZoomAnimation ? 1.0 : 0.0
                             };
                         };
 
@@ -359,10 +402,10 @@ function ($document, PanZoomService) {
                                 var now = jQuery.now();
                                 var deltaTime = lastTick ? (now - lastTick) / 1000 : 0;
                                 lastTick = now;
-                                
+
                                 if ($scope.zoomAnimation) {
                                     $scope.zoomAnimation.progress += deltaTime / $scope.zoomAnimation.duration;
-                                    
+
                                     if ($scope.zoomAnimation.progress >= 1.0) {
                                         $scope.zoomAnimation.progress = 1.0;
 
@@ -374,7 +417,7 @@ function ($document, PanZoomService) {
 
                                         $scope.zoomAnimation = undefined;
 
-                                        if ($scope.config.modelChangedCallback) {                                        
+                                        if ($scope.config.modelChangedCallback) {
                                             $scope.config.modelChangedCallback($scope.model);
                                         }
                                     }
@@ -397,7 +440,7 @@ function ($document, PanZoomService) {
                                         if (speed < $scope.config.haltSpeed) {
                                             $scope.panVelocity = undefined;
 
-                                            if ($scope.config.modelChangedCallback) {                                        
+                                            if ($scope.config.modelChangedCallback) {
                                                 $scope.config.modelChangedCallback($scope.model);
                                             }
 
@@ -405,11 +448,14 @@ function ($document, PanZoomService) {
                                         }
                                     }
                                 }
-                                
+
+                                var topLeftCornerView;
+                                var bottomRightCornerView;
+
                                 if ($scope.config.keepInBounds && !$scope.dragging) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
-        
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+
                                     if (topLeftCornerView.x > 0) {
                                         $scope.base.pan.x -= $scope.config.keepInBoundsRestoreForce * topLeftCornerView.x;
                                     }
@@ -427,11 +473,43 @@ function ($document, PanZoomService) {
                                     }
                                 }
 
+                                if ($scope.config.keepInScreen && !$scope.dragging) {
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
+
+                                    //Calculates the initial zoom of the viewport
+                                    // var initialZoom = calcZoomToFit({x:0, y:0, width:viewportWidth, height: viewportHeight});
+                                    //Not pan if it's the current zoom
+                                    if (topLeftCornerView.x - initialRectangle.pan.x !== 0 &&
+                                        topLeftCornerView.y - initialRectangle.pan.y !== 0) {
+                                    // if ($scope.base.zoomLevel !== initialRectangle.zoomLevel) {
+                                        if (topLeftCornerView.x > 0.01) {
+                                            console.log('mouseup xl');
+                                            $scope.base.pan.x -= $scope.config.keepInBoundsRestoreForce * topLeftCornerView.x;
+                                        }
+
+                                        if (topLeftCornerView.y > 0.01) {
+                                            console.log('mouseup yt');
+                                            $scope.base.pan.y -= $scope.config.keepInBoundsRestoreForce * topLeftCornerView.y;
+                                        }
+                                        // if (Math.floor( bottomRightCornerView.x ) > viewportWidth) {
+                                        if ( bottomRightCornerView.x > viewportWidth) {
+                                            console.log('mouseup xr');
+                                            $scope.base.pan.x -= $scope.config.keepInBoundsRestoreForce * (viewportWidth - bottomRightCornerView.x);
+                                        }
+                                        // if (Math.floor( bottomRightCornerView.y) > viewportHeight) {
+                                        if ( bottomRightCornerView.y > viewportHeight) {
+                                            console.log('mouseup yb');
+                                            $scope.base.pan.y -= $scope.config.keepInBoundsRestoreForce * (viewportHeight - bottomRightCornerView.y);
+                                        }
+                                    }
+                                }
+
                                 syncModelToDOM();
 
                                 if (animationFrame && !scopeIsDestroyed) {
-                                    animationFrame(tick); //If we're using requestAnimationFrame reschedule 
-                                } 
+                                    animationFrame(tick); //If we're using requestAnimationFrame reschedule
+                                }
 
                                 return !scopeIsDestroyed; // kill the tick for good if the directive goes off the page
                             };
@@ -443,7 +521,7 @@ function ($document, PanZoomService) {
                         if (animationFrame) {
                             animationFrame(tick);
                         } else {
-                            jQuery.fx.timer(tick);    
+                            jQuery.fx.timer(tick);
                         }
 
                         $scope.$on('$destroy', function () {
@@ -491,8 +569,8 @@ function ($document, PanZoomService) {
                                 };
                             }
                         };
-                        
-                        
+
+
                         $scope.onTouchMove = function($event) {
                         	$event.preventDefault();
 
@@ -553,11 +631,11 @@ function ($document, PanZoomService) {
                                 $scope.dragging = true;
                                 $scope.model.isPanning = false;
                                 $document.on('mousemove', $scope.onMousemove);
-                                $document.on('mouseup', $scope.onMouseup);	
+                                $document.on('mouseup', $scope.onMouseup);
                                 $document.on('touchend', $scope.onTouchEnd);
                                 $document.on('touchmove', $scope.onTouchMove);
                             }
-                            
+
                             return false;
                         };
                         var pan = function (delta) {
@@ -572,7 +650,7 @@ function ($document, PanZoomService) {
                         $scope.onMousemove = function ($event) {
                     		$event.preventDefault();
                     		$event.stopPropagation();
-                        	
+
                             var now = jQuery.now();
                             var timeSinceLastMouseEvent = (now - lastMouseEventTime) / 1000;
                             $scope.hasPanned = true;
@@ -581,11 +659,13 @@ function ($document, PanZoomService) {
                                 x: $event.pageX - previousPosition.x,
                                 y: $event.pageY - previousPosition.y
                             };
-                            
+
+                            var topLeftCornerView;
+                            var bottomRightCornerView;
                             if ($scope.config.keepInBounds) {
-                                var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
-    
+                                topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+
                                 if (topLeftCornerView.x > 0 && dragDelta.x > 0) {
                                     dragDelta.x *= Math.min(Math.pow(topLeftCornerView.x, -$scope.config.keepInBoundsDragPullback), 1);
                                 }
@@ -602,19 +682,52 @@ function ($document, PanZoomService) {
                                      dragDelta.y *= Math.min(Math.pow(viewportHeight - bottomRightCornerView.y, -$scope.config.keepInBoundsDragPullback), 1);
                                 }
                             }
-                            
+
+                            if ($scope.config.keepInScreen) {
+                                topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
+
+                                //Not pan if it's the initialZoom
+                                if (topLeftCornerView.x - initialRectangle.pan.x === 0 &&
+                                    topLeftCornerView.y - initialRectangle.pan.y === 0) {
+                                    console.log('initialZoom');
+                                    dragDelta.x = 0;
+                                    dragDelta.y = 0;
+                                }
+                                else {
+                                    if (topLeftCornerView.x > 0 && dragDelta.x > 0) {
+                                        console.log('animate xl');
+                                        dragDelta.x *= Math.min(Math.pow(topLeftCornerView.x, -$scope.config.keepInBoundsDragPullback), 1);
+                                    }
+
+                                    if (topLeftCornerView.y > 0 && dragDelta.y > 0) {
+                                        console.log('animate yt');
+                                        dragDelta.y *= Math.min(Math.pow(topLeftCornerView.y, -$scope.config.keepInBoundsDragPullback), 1);
+                                    }
+                                    if (Math.floor( bottomRightCornerView.x ) > viewportWidth && dragDelta.x < 0) {
+                                        console.log('animate xr');
+                                        dragDelta.x *= Math.min(Math.pow(bottomRightCornerView.x - viewportWidth, -$scope.config.keepInBoundsDragPullback), 1);
+                                    }
+
+                                    if (Math.floor( bottomRightCornerView.y ) > viewportHeight && dragDelta.y < 0) {
+                                        console.log('animate yb');
+                                        dragDelta.y *= Math.min(Math.pow(bottomRightCornerView.y - viewportHeight, -$scope.config.keepInBoundsDragPullback), 1);
+                                    }
+                                }
+                            }
+
                             pan(dragDelta);
-                            
+
                             if (!$scope.model.isPanning) {
-                            	/*This will improve the performance, 
+                            	/*This will improve the performance,
                             	 *because the browser stops evaluating hits against the elements displayed inside the pan zoom view.
-                            	 *Besides this, mouse events will not be sent to any other elements, 
+                            	 *Besides this, mouse events will not be sent to any other elements,
                             	 *this prevents issues like selecting elements while dragging. */
                                 $overlay.css('display', 'block');
                             }
-                            
+
                             $scope.model.isPanning = true;
-                            
+
 
                             // set these for the animation slow down once drag stops
                             $scope.panVelocity = {
@@ -646,10 +759,10 @@ function ($document, PanZoomService) {
                             $scope.model.isPanning = false;
 
                             $document.off('mousemove', $scope.onMousemove);
-                            $document.off('mouseup', $scope.onMouseup);	
+                            $document.off('mouseup', $scope.onMouseup);
                             $document.off('touchend', $scope.onTouchEnd);
                             $document.off('touchmove', $scope.onTouchMove);
-                            
+
                             //Set the overlay to noneblocking again:
                             $overlay.css('display', 'none');
                         };
@@ -684,7 +797,7 @@ function ($document, PanZoomService) {
                                 }
                             }
                         };
-                     	
+
                         // create public API
                         api = {
                             model: $scope.model,
@@ -707,7 +820,7 @@ function ($document, PanZoomService) {
                     if (scope.elementId) {
                         PanZoomService.registerAPI(scope.elementId, api);
                     }
-                    
+
                     element.on('touchstart', function(e) {
                     	scope.onTouchStart(e);
                     });
