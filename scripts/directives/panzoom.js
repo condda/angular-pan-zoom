@@ -1,5 +1,5 @@
 /*!
- AngularJS pan/zoom v{VERSION}
+ AngularJS pan/zoom v1.0.18
  @license: MIT
  Github: https://github.com/condda/angular-pan-zoom
 */
@@ -33,10 +33,10 @@ function ($document, PanZoomService) {
 
                         if (existing.length === 0) {
                             $overlay = $('<div id="PanZoomOverlay" style="position: absolute;'+
-            				' top: 0; left: 0; right: 0; bottom: 0; opacity: 0; display: none;"></div>');
+                            ' top: 0; left: 0; right: 0; bottom: 0; opacity: 0; display: none;"></div>');
                             $document.find('body').append($overlay);
                         } else {
-                        	$overlay = existing;
+                            $overlay = existing;
                         }
 
                         var getCssScale = function (zoomLevel) {
@@ -552,7 +552,7 @@ function ($document, PanZoomService) {
 
 
                         $scope.onTouchMove = function($event) {
-                        	$event.preventDefault();
+                            $event.preventDefault();
 
                             if ($event.originalEvent.touches.length === 1) {
                                 // single touch, emulate mouse move
@@ -628,8 +628,8 @@ function ($document, PanZoomService) {
                         };
 
                         $scope.onMousemove = function ($event) {
-                    		$event.preventDefault();
-                    		$event.stopPropagation();
+                            $event.preventDefault();
+                            $event.stopPropagation();
 
                             var now = jQuery.now();
                             var timeSinceLastMouseEvent = (now - lastMouseEventTime) / 1000;
@@ -694,10 +694,10 @@ function ($document, PanZoomService) {
                             pan(dragDelta);
 
                             if (!$scope.model.isPanning) {
-                            	/*This will improve the performance,
-                            	 *because the browser stops evaluating hits against the elements displayed inside the pan zoom view.
-                            	 *Besides this, mouse events will not be sent to any other elements,
-                            	 *this prevents issues like selecting elements while dragging. */
+                                /*This will improve the performance,
+                                 *because the browser stops evaluating hits against the elements displayed inside the pan zoom view.
+                                 *Besides this, mouse events will not be sent to any other elements,
+                                 *this prevents issues like selecting elements while dragging. */
                                 $overlay.css('display', 'block');
                             }
 
@@ -777,7 +777,14 @@ function ($document, PanZoomService) {
                             if ($scope.config.initialZoomToFit) {
                                 initialRectangle = calcZoomToFit($scope.config.initialZoomToFit);
                             }
-                        })
+                        });
+
+                        $scope.$watch('config.viewport', function() {
+                            if ($scope.config.viewport) {
+                                viewportWidth = $scope.config.viewport.width;
+                                viewportHeight = $scope.config.viewport.height;
+                            }
+                        });
 
                         // create public API
                         api = {
@@ -803,7 +810,7 @@ function ($document, PanZoomService) {
                     }
 
                     element.on('touchstart', function(e) {
-                    	scope.onTouchStart(e);
+                        scope.onTouchStart(e);
                     });
                 },
                 template: '<div class="pan-zoom-frame" ng-dblclick="onDblClick($event)" ng-mousedown="onMousedown($event)"' +
@@ -817,3 +824,155 @@ function ($document, PanZoomService) {
                 replace: true
             };
     }]);
+angular.module('panzoomwidget', [])
+.directive('panzoomwidget', ['$document', 'PanZoomService',
+function ($document, PanZoomService) {
+  var panzoomId;
+
+  return {
+    restrict: 'E',
+    transclude: true,
+    compile: function compile(/*tElement, tAttrs, transclude*/) {
+      return {
+        pre: function preLink(/*scope, iElement, iAttrs, controller*/) { },
+        post: function postLink(scope, iElement, iAttrs /*, controller*/) {
+          // we pick the value ourselves at this point, before the controller is instantiated,
+          // instead of passing it as a scope variable. This is to not force people to type quotes
+          // around the string.
+          // Note: we need to use iAttrs and not directly get the attribute on the element to
+          // be sure to get the interpolated value ({{foo}})
+          panzoomId = iAttrs.panzoomId;
+
+          if (!panzoomId) {
+            throw 'Error in setup. You must define attribute panzoom-id on the <panzoomwidget> element in order to link it to the ' +
+            'id of the <panzoom> element. Ref: ';
+          }
+          PanZoomService.getAPI(panzoomId).then(function (api) {
+            scope.model = api.model;
+            scope.config = api.config;
+
+            var zoomSliderWidget = iElement.find('.zoom-slider-widget');
+            var isDragging = false;
+
+            var sliderWidgetTopFromZoomLevel = function (zoomLevel) {
+              return ((scope.config.zoomLevels - zoomLevel - 1) * scope.widgetConfig.zoomLevelHeight);
+            };
+
+            var zoomLevelFromSliderWidgetTop = function (sliderWidgetTop) {
+              return scope.config.zoomLevels - 1 - sliderWidgetTop / scope.widgetConfig.zoomLevelHeight;
+            };
+
+            var getZoomLevelForMousePoint = function ($event) {
+              var sliderWidgetTop = $event.pageY - iElement.find('.zoom-slider').offset().top - scope.widgetConfig.zoomLevelHeight / 2;
+              return zoomLevelFromSliderWidgetTop(sliderWidgetTop);
+            };
+
+            scope.getZoomLevels = function () {
+              var zoomLevels = [];
+              for (var i = scope.config.zoomLevels - 1; i >= 0; i--) {
+                zoomLevels.push(i);
+              }
+              return zoomLevels;
+            };
+
+            scope.widgetConfig = {
+              zoomLevelHeight: 10
+            };
+
+            scope.zoomIn = function () {
+              api.zoomIn();
+            };
+
+            scope.zoomOut = function () {
+              api.zoomOut();
+            };
+
+            scope.onClick = function ($event) {
+              var zoomLevel = getZoomLevelForMousePoint($event);
+              api.changeZoomLevel(zoomLevel);
+            };
+
+            scope.onMousedown = function () {
+              isDragging = true;
+
+              $document.on('mousemove', scope.onMousemove);
+              $document.on('mouseup', scope.onMouseup);
+            };
+
+            scope.onMousemove = function ($event) {
+              $event.preventDefault();
+              var zoomLevel = getZoomLevelForMousePoint($event);
+              api.changeZoomLevel(zoomLevel);
+            };
+
+            scope.onMouseup = function () {
+              isDragging = false;
+
+              $document.off('mousemove', scope.onMousemove);
+              $document.off('mouseup', scope.onMouseup);
+            };
+
+            scope.onMouseleave = function () {
+              isDragging = false;
+            };
+
+            // $watch is not fast enough so we set up our own polling
+            setInterval(function () {
+              zoomSliderWidget.css('top', sliderWidgetTopFromZoomLevel(scope.model.zoomLevel) + 'px');
+            }, 25);
+          });
+        }
+      };
+    },
+    template: '<div class="panzoomwidget">' +
+    '<div ng-click="zoomIn()" ng-mouseenter="zoomToLevelIfDragging(config.zoomLevels - 1)" class="zoom-button zoom-button-in">+</div>' +
+    '<div class="zoom-slider" ng-mousedown="onMousedown()" ' +
+    'ng-click="onClick($event)">' +
+    '<div class="zoom-slider-widget" ng-style="{\'height\': widgetConfig.zoomLevelHeight - 2 +\'px\'}"></div>' +
+    '<div ng-repeat="zoomLevel in getZoomLevels()" ' +
+    ' class="zoom-level zoom-level-{{zoomLevel}}" ng-style="{\'height\': widgetConfig.zoomLevelHeight +\'px\'}"></div>' +
+    '</div>' +
+    '<div ng-click="zoomOut()" ng-mouseenter="zoomToLevelIfDragging(0)" class="zoom-button zoom-button-out">-</div>' +
+    '<div ng-transclude></div>' +
+    '</div>',
+    replace: true
+  };
+}]);
+angular.module('panzoom').factory('PanZoomService', ['$q',
+    function ($q) {
+        // key -> deferred with promise of API
+        var panZoomAPIs = {};
+
+        var registerAPI = function (key, panZoomAPI) {
+            if (!panZoomAPIs[key]) {
+                panZoomAPIs[key] = $q.defer();
+            }
+
+            var deferred = panZoomAPIs[key];
+            if (deferred.hasBeenResolved) {
+                throw 'Internal error: attempt to register a panzoom API but key was already used. Did you declare two <panzoom> directives with the same id?';
+            } else {
+                deferred.resolve(panZoomAPI);
+                deferred.hasBeenResolved = true;
+            }
+        };
+
+        var unregisterAPI = function (key) {
+            delete panZoomAPIs[key];
+        };
+
+        // this method returns a promise since it's entirely possible that it's called before the <panzoom> directive registered the API
+        var getAPI = function (key) {
+            if (!panZoomAPIs[key]) {
+                panZoomAPIs[key] = $q.defer();
+            }
+
+            return panZoomAPIs[key].promise;
+        };
+
+        return {
+            registerAPI: registerAPI,
+            unregisterAPI: unregisterAPI,
+            getAPI: getAPI
+        };
+}]);
