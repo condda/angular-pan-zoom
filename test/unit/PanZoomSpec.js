@@ -115,14 +115,14 @@ describe('PanZoom specs', function () {
         $scope.$digest();
 
         var overlay = $document.find('#PanZoomOverlay');
-        
+
         function createMouseEvent(type, clientX, clientY) {
             var e = document.createEvent('MouseEvents');
             // type, canBubble, cancelable, view,  detail, screenX, screenY, clientX, clientY,  ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget
             e.initMouseEvent(type, true, true, window, 1, 0, 0, clientX || 0, clientY || 0, false, false, false, false, 0, null);
             e.preventDefault = undefined;
             e.stopPropagation = undefined;
-            
+
             return e;
         }
 
@@ -158,16 +158,16 @@ describe('PanZoom specs', function () {
         $scope.$digest();
 
         var overlay = $document.find('#PanZoomOverlay');
-        
+
         function createTouchEvent(type, touches) {
             var e = document.createEvent('MouseEvents');
             // type, canBubble, cancelable, view,  detail, screenX, screenY, clientX, clientY,  ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget
             e.initMouseEvent(type, true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 0, null);
             e.touches = touches || [];
-            
-            e.preventDefault = undefined;
-            e.stopPropagation = undefined;
-            
+
+            e.preventDefault();
+            e.stopPropagation();
+
             return $.event.fix(e);
         }
 

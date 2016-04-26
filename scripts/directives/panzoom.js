@@ -147,9 +147,11 @@ function ($document, PanZoomService) {
                                 $scope.model.pan.x = $scope.base.pan.x + deltaT.x;
                                 $scope.model.pan.y = $scope.base.pan.y + deltaT.y;
 
+                                var topLeftCornerView;
+                                var bottomRightCornerView;
                                 if ($scope.config.keepInBounds) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
 
                                     if (topLeftCornerView.x > 0) {
                                         $scope.model.pan.x = 0;
@@ -169,8 +171,8 @@ function ($document, PanZoomService) {
                                 }
 
                                 if ($scope.config.keepInScreen) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getViewPosition({ x: $element.width(), y: $element.height() });
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: $element.width(), y: $element.height() });
                                     // var modelPosition = getModelPosition({ x: $element.width(), y: $element.height() });
                                     // console.log('syncModelToDOM');
                                     // console.log(modelPosition.x + ', ' + modelPosition.y);
@@ -447,9 +449,12 @@ function ($document, PanZoomService) {
                                     }
                                 }
 
+                                var topLeftCornerView;
+                                var bottomRightCornerView;
+
                                 if ($scope.config.keepInBounds && !$scope.dragging) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
 
                                     if (topLeftCornerView.x > 0) {
                                         $scope.base.pan.x -= $scope.config.keepInBoundsRestoreForce * topLeftCornerView.x;
@@ -469,14 +474,14 @@ function ($document, PanZoomService) {
                                 }
 
                                 if ($scope.config.keepInScreen && !$scope.dragging) {
-                                    var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                    var bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
+                                    topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                    bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
 
                                     //Calculates the initial zoom of the viewport
                                     // var initialZoom = calcZoomToFit({x:0, y:0, width:viewportWidth, height: viewportHeight});
                                     //Not pan if it's the current zoom
-                                    if (topLeftCornerView.x - initialRectangle.pan.x != 0 &&
-                                        topLeftCornerView.y - initialRectangle.pan.y != 0) {
+                                    if (topLeftCornerView.x - initialRectangle.pan.x !== 0 &&
+                                        topLeftCornerView.y - initialRectangle.pan.y !== 0) {
                                     // if ($scope.base.zoomLevel !== initialRectangle.zoomLevel) {
                                         if (topLeftCornerView.x > 0.01) {
                                             console.log('mouseup xl');
@@ -655,9 +660,11 @@ function ($document, PanZoomService) {
                                 y: $event.pageY - previousPosition.y
                             };
 
+                            var topLeftCornerView;
+                            var bottomRightCornerView;
                             if ($scope.config.keepInBounds) {
-                                var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                var bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
+                                topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                bottomRightCornerView = getViewPosition({ x: viewportWidth, y: viewportHeight });
 
                                 if (topLeftCornerView.x > 0 && dragDelta.x > 0) {
                                     dragDelta.x *= Math.min(Math.pow(topLeftCornerView.x, -$scope.config.keepInBoundsDragPullback), 1);
@@ -675,13 +682,14 @@ function ($document, PanZoomService) {
                                      dragDelta.y *= Math.min(Math.pow(viewportHeight - bottomRightCornerView.y, -$scope.config.keepInBoundsDragPullback), 1);
                                 }
                             }
+
                             if ($scope.config.keepInScreen) {
-                                var topLeftCornerView = getViewPosition({ x: 0, y: 0 });
-                                var bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
+                                topLeftCornerView = getViewPosition({ x: 0, y: 0 });
+                                bottomRightCornerView = getModelPosition({ x: $element.width(), y: $element.height() });
 
                                 //Not pan if it's the initialZoom
-                                if (topLeftCornerView.x - initialRectangle.pan.x == 0 &&
-                                    topLeftCornerView.y - initialRectangle.pan.y == 0) {
+                                if (topLeftCornerView.x - initialRectangle.pan.x === 0 &&
+                                    topLeftCornerView.y - initialRectangle.pan.y === 0) {
                                     console.log('initialZoom');
                                     dragDelta.x = 0;
                                     dragDelta.y = 0;

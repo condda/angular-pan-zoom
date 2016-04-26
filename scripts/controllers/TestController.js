@@ -1,7 +1,7 @@
 angular.module('test', ['panzoom', 'panzoomwidget'])
 
-.controller('TestController', ['$scope', 'PanZoomService',
-   function ($scope, PanZoomService) {
+.controller('TestController', ['$scope',
+   function ($scope) {
         var _rectangle = {'x': 0, 'y': 0, width: 2048, height: 1536};
         //_rectangle = {'x': 0, 'y': 0, width: 2048, height: 397};
         $scope.panzoomConfig = {
