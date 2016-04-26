@@ -1,7 +1,7 @@
 /*!
- AngularJS pan/zoom v1.0.17
+ AngularJS pan/zoom v1.0.18
  @license: MIT
- Github: https://github.com/mvindahl/angular-pan-zoom
+ Github: https://github.com/condda/angular-pan-zoom
 */
 /* globals console */
 angular.module('panzoom', ['monospaced.mousewheel'])
