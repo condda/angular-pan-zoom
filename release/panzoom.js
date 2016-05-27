@@ -1,5 +1,5 @@
 /*!
- AngularJS pan/zoom v1.0.18
+ AngularJS pan/zoom v1.0.19
  @license: MIT
  Github: https://github.com/condda/angular-pan-zoom
 */
@@ -403,10 +403,10 @@ function ($document, PanZoomService) {
                                         $scope.base.pan.y = $scope.model.pan.y;
 
                                         $scope.zoomAnimation = undefined;
+                                    }
 
-                                        if ($scope.config.modelChangedCallback) {
-                                            $scope.config.modelChangedCallback($scope.model);
-                                        }
+                                    if ($scope.config.modelChangedCallback) {
+                                        $scope.config.modelChangedCallback($scope.model);
                                     }
                                 }
 
@@ -625,6 +625,10 @@ function ($document, PanZoomService) {
                             $scope.base.pan.y += delta.y;
 
                             syncModelToDOM();
+
+                            if ($scope.config.modelChangedCallback) {
+                                $scope.config.modelChangedCallback($scope.model);
+                            }
                         };
 
                         $scope.onMousemove = function ($event) {
