@@ -236,6 +236,10 @@ function ($document, PanZoomService) {
                                 panElementDOM.style.left = $scope.model.pan.x + 'px';
                                 panElementDOM.style.top = $scope.model.pan.y + 'px';
                             }
+
+                            if ($scope.config.modelChangedCallback) {
+                                $scope.config.modelChangedCallback($scope.model);
+                            }
                         };
 
                         var getCenterPoint = function () {
@@ -403,10 +407,6 @@ function ($document, PanZoomService) {
                                         $scope.base.pan.y = $scope.model.pan.y;
 
                                         $scope.zoomAnimation = undefined;
-                                    }
-
-                                    if ($scope.config.modelChangedCallback) {
-                                        $scope.config.modelChangedCallback($scope.model);
                                     }
                                 }
 
@@ -625,10 +625,6 @@ function ($document, PanZoomService) {
                             $scope.base.pan.y += delta.y;
 
                             syncModelToDOM();
-
-                            if ($scope.config.modelChangedCallback) {
-                                $scope.config.modelChangedCallback($scope.model);
-                            }
                         };
 
                         $scope.onMousemove = function ($event) {
